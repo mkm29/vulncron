@@ -1,21 +1,15 @@
 package main
 
 import (
-	"context"
 	"flag"
+	"fmt"
 	"log"
 
-	"github.com/mkm29/vulncron/api/v1alpha1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
+	k8s "github.com/mkm29/vulncron/pkg/kubernetes"
+	"github.com/mkm29/vulncron/pkg/reports"
 )
 
 var kubeconfig string
-var kubeClient *kubernetes.Clientset
 
 func init() {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "absolute path to the kubeconfig file")
@@ -23,39 +17,25 @@ func init() {
 }
 
 func main() {
-	var config *rest.Config
-	var err error
-	if kubeconfig == "" {
-		log.Printf("using in-cluster configuration")
-		config, err = rest.InClusterConfig()
-	} else {
-		log.Printf("using configuration from '%s'", kubeconfig)
-		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
-	}
+	// Connect to Kubernetes API
+	client, err := k8s.Connect(kubeconfig)
 	if err != nil {
-		panic(err)
+		log.Fatalf("failed to connect to Kubernetes API: %v", err)
 	}
 
-	v1alpha1.AddToScheme(scheme.Scheme)
-
-	crdConfig := *config
-	crdConfig.ContentConfig.GroupVersion = &schema.GroupVersion{Group: v1alpha1.GroupVersion.Group, Version: v1alpha1.GroupVersion.Version}
-	crdConfig.APIPath = "/apis"
-	crdConfig.NegotiatedSerializer = serializer.NewCodecFactory(scheme.Scheme)
-	crdConfig.UserAgent = rest.DefaultKubernetesUserAgent()
-
-	client, err := rest.UnversionedRESTClientFor(&crdConfig)
-	if err != nil {
-		panic(err)
-	}
 	// get VulnerabilityReportList
-	var vrl v1alpha1.VulnerabilityReportList
-	err = client.Get().
-		Resource("vulnerabilityreports").
-		Do(context.Background()).
-		Into(&vrl)
+	err, vrl := reports.GetVulnerabilityReportList(client)
 	if err != nil {
-		panic(err)
+		log.Fatalf("failed to get VulnerabilityReportList: %v", err)
 	}
-	log.Printf("got %d vulnerability reports", len(vrl.Items))
+	summary, summaries := reports.GetReportSummaries(vrl)
+	_ = summaries
+
+	fmt.Printf("%+v", summary)
+	// Marshall to JSON
+	// json, err := json.MarshalIndent(summaries, "", " ")
+	// if err != nil {
+	// 	log.Fatalf("failed to marshall to JSON: %v", err)
+	// }
+	// fmt.Printf("%s", json)
 }

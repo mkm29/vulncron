@@ -1,8 +1,8 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
-	"fmt"
 	"log"
 
 	k8s "github.com/mkm29/vulncron/pkg/kubernetes"
@@ -24,14 +24,25 @@ func main() {
 	}
 
 	// get VulnerabilityReportList
-	err, vrl := reports.GetVulnerabilityReportList(client)
+	vrl, err := reports.GetVulnerabilityReportList(client)
 	if err != nil {
 		log.Fatalf("failed to get VulnerabilityReportList: %v", err)
 	}
 	summary, summaries := reports.GetReportSummaries(vrl)
 	_ = summaries
 
-	fmt.Printf("%+v", summary)
+	// Convert summary to string
+	js, err := json.Marshal(summary)
+	if err != nil {
+		log.Fatalf("failed to marshall to JSON: %v", err)
+	}
+
+	err = reports.SendMail("descdevops@rtx.com", "Trivy Report Summary", string(js), []string{"descdevops@rtx.com"})
+	if err != nil {
+		log.Fatalf("failed to send email: %v", err)
+	}
+
+	// fmt.Printf("%+v", summary)
 	// Marshall to JSON
 	// json, err := json.MarshalIndent(summaries, "", " ")
 	// if err != nil {

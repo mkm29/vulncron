@@ -9,10 +9,14 @@ import (
 	"github.com/mkm29/vulncron/pkg/reports"
 )
 
-var kubeconfig string
+var (
+	kubeconfig string
+	cluster    string
+)
 
 func init() {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "absolute path to the kubeconfig file")
+	flag.StringVar(&cluster, "cluster", "", "cluster name")
 	flag.Parse()
 }
 
@@ -37,16 +41,10 @@ func main() {
 		log.Fatalf("failed to marshall to JSON: %v", err)
 	}
 
-	err = reports.SendMail("descdevops@rtx.com", "Trivy Report Summary", string(js), []string{"descdevops@rtx.com"})
-	if err != nil {
-		log.Fatalf("failed to send email: %v", err)
-	}
+	log.Printf("Sending email: %s", string(js))
 
-	// fmt.Printf("%+v", summary)
-	// Marshall to JSON
-	// json, err := json.MarshalIndent(summaries, "", " ")
+	// err = reports.SendMail("descdevops@rtx.com", "Trivy Report Summary", string(js), []string{"descdevops@rtx.com"})
 	// if err != nil {
-	// 	log.Fatalf("failed to marshall to JSON: %v", err)
+	// 	log.Fatalf("failed to send email: %v", err)
 	// }
-	// fmt.Printf("%s", json)
 }

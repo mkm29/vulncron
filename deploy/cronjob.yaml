@@ -1,0 +1,21 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: vulncronjob
+  namespace: trivy-operator
+spec:
+  schedule: "56 9 * * *"
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: trivy-operator
+          containers:
+          - name: vulncron
+            image: localhost:5000/smigula/vulncron:0.1.1
+            imagePullPolicy: IfNotPresent
+            command:
+            - /vulns
+            args:
+            - -cluster=k3s
+          restartPolicy: OnFailure

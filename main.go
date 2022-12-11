@@ -1,18 +1,22 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
-	"fmt"
 	"log"
 
 	k8s "github.com/mkm29/vulncron/pkg/kubernetes"
 	"github.com/mkm29/vulncron/pkg/reports"
 )
 
-var kubeconfig string
+var (
+	kubeconfig string
+	cluster    string
+)
 
 func init() {
 	flag.StringVar(&kubeconfig, "kubeconfig", "", "absolute path to the kubeconfig file")
+	flag.StringVar(&cluster, "cluster", "", "cluster name")
 	flag.Parse()
 }
 
@@ -24,18 +28,23 @@ func main() {
 	}
 
 	// get VulnerabilityReportList
-	err, vrl := reports.GetVulnerabilityReportList(client)
+	vrl, err := reports.GetVulnerabilityReportList(client)
 	if err != nil {
 		log.Fatalf("failed to get VulnerabilityReportList: %v", err)
 	}
 	summary, summaries := reports.GetReportSummaries(vrl)
 	_ = summaries
 
-	fmt.Printf("%+v", summary)
-	// Marshall to JSON
-	// json, err := json.MarshalIndent(summaries, "", " ")
+	// Convert summary to string
+	js, err := json.Marshal(summary)
+	if err != nil {
+		log.Fatalf("failed to marshall to JSON: %v", err)
+	}
+
+	log.Printf("Sending email: %s", string(js))
+
+	// err = reports.SendMail("descdevops@rtx.com", "Trivy Report Summary", string(js), []string{"descdevops@rtx.com"})
 	// if err != nil {
-	// 	log.Fatalf("failed to marshall to JSON: %v", err)
+	// 	log.Fatalf("failed to send email: %v", err)
 	// }
-	// fmt.Printf("%s", json)
 }

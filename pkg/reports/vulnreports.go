@@ -9,22 +9,25 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func GetVulnerabilityReportList(client *rest.RESTClient) (v1alpha1.VulnerabilityReportList, error) {
+type vulnSummary map[string]Summary
+
+func GetVulnerabilityReportList(client *rest.RESTClient) (error, v1alpha1.VulnerabilityReportList) {
 	var vrl v1alpha1.VulnerabilityReportList
 	err := client.Get().
 		Resource("vulnerabilityreports").
 		Do(context.Background()).
 		Into(&vrl)
 	if err != nil {
-		return vrl, err
+		return err, vrl
 	}
 	log.Printf("got %d vulnerability reports", len(vrl.Items))
-	return vrl, nil
+	return nil, vrl
 }
 
-func GetReportSummaries(vrl v1alpha1.VulnerabilityReportList) (Summary, []VulnerabilitySummary) {
+func GetReportSummaries(vrl v1alpha1.VulnerabilityReportList) (map[string]Summary, []VulnerabilitySummary) {
 	// create summaries
-	summary := Summary{}
+	// summary := Summary{}
+	vss := make(map[string]Summary)
 	summaries := []VulnerabilitySummary{}
 	for _, vr := range vrl.Items {
 		// get VulnerabilitySummary
@@ -38,6 +41,11 @@ func GetReportSummaries(vrl v1alpha1.VulnerabilityReportList) (Summary, []Vulner
 			Medium:     vr.Report.Summary.MediumCount,
 			Low:        vr.Report.Summary.LowCount,
 		}
+		if _, ok := vss[vr.ObjectMeta.Namespace]; !ok {
+			// Namespace does not exist in vss so add it
+			vss[vr.ObjectMeta.Namespace] = Summary{}
+		}
+		summary := vss[vr.ObjectMeta.Namespace]
 		summary.TotalCritical += vr.Report.Summary.CriticalCount
 		summary.TotalHigh += vr.Report.Summary.HighCount
 		summary.TotalMedium += vr.Report.Summary.MediumCount
@@ -46,5 +54,36 @@ func GetReportSummaries(vrl v1alpha1.VulnerabilityReportList) (Summary, []Vulner
 		summary.TotalNone += vr.Report.Summary.NoneCount
 		summaries = append(summaries, vs)
 	}
-	return summary, summaries
+	return vss, summaries
+}
+
+func VssToHtml(vs []VulnerabilitySummary, cluster string) string {
+	var html string = ohtml
+	// replace ${title}
+	html = strings.Replace(html, "${title}", fmt.Sprintf("Trivy Report: %s", cluster), 1)
+	rhtml := ""
+	// iterate over vs
+	for _, s := range vs {
+		rhtml = fmt.Sprintf(`<tr>
+  <td>%s</td>
+  <td>%s</td>
+  <td>%s</td>
+  <td>%d</td>
+  <td>%d</td>
+  <td>%d</td>
+  <td>%d</td>
+</tr>
+`, s.Namespace,
+			s.Repository,
+			s.Tag,
+			s.Critical,
+			s.High,
+			s.Medium,
+			s.Low,
+		)
+		// append row html to html
+		html = html + rhtml
+	}
+
+	return fmt.Sprintf("%s%s", html, chtml)
 }

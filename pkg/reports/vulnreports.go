@@ -2,7 +2,9 @@ package reports
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"strings"
 
 	"github.com/mkm29/vulncron/api/v1alpha1"
 	"github.com/mkm29/vulncron/pkg/utils"
@@ -11,17 +13,17 @@ import (
 
 type vulnSummary map[string]Summary
 
-func GetVulnerabilityReportList(client *rest.RESTClient) (error, v1alpha1.VulnerabilityReportList) {
+func GetVulnerabilityReportList(client *rest.RESTClient) (v1alpha1.VulnerabilityReportList, error) {
 	var vrl v1alpha1.VulnerabilityReportList
 	err := client.Get().
 		Resource("vulnerabilityreports").
 		Do(context.Background()).
 		Into(&vrl)
 	if err != nil {
-		return err, vrl
+		return vrl, err
 	}
 	log.Printf("got %d vulnerability reports", len(vrl.Items))
-	return nil, vrl
+	return vrl, nil
 }
 
 func GetReportSummaries(vrl v1alpha1.VulnerabilityReportList) (map[string]Summary, []VulnerabilitySummary) {
